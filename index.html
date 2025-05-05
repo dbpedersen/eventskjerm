@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0" />
+  <title>Rebel Arrangementer</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      font-family: 'Arial', sans-serif;
+      background-color: #1e1e1e;
+      color: white;
+      overflow: hidden;
+    }
+    .container {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .logo {
+      height: 80px;
+      margin-right: 20px;
+    }
+    .title {
+      font-size: 36px;
+      font-weight: 400;
+    }
+    .grid {
+      display: flex;
+      justify-content: space-between;
+      flex: 1;
+      gap: 40px;
+    }
+    .column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .event {
+      display: flex;
+      background-color: #135b7f;
+      height: 120px;
+      overflow: hidden;
+    }
+    .event img {
+      width: 40%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .event-text {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      width: 60%;
+    }
+    .event-date {
+      font-size: 14px;
+      font-weight: 300;
+      color: #c0e6ff;
+    }
+    .event-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: white;
+    }
+    .event-desc {
+      font-size: 14px;
+      color: white;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="https://images.squarespace-cdn.com/content/6332cfae2976713409c82cf9/5fac4338-3440-42f0-b589-77dd64c7c063/Rebel_arena-lighter-blue.png?content-type=image%2Fpng" alt="Rebel Arena" class="logo" />
+      <div class="title">Kommende arrangementer på Rebel</div>
+    </div>
+    <div class="grid">
+      <div class="column" id="column-left"></div>
+      <div class="column" id="column-right"></div>
+    </div>
+  </div>
+
+  <script>
+    async function fetchEvents() {
+      const CORS_PROXY = "https://api.allorigins.win/get?url=";
+      const FEED_URL = "https://www.rebel.no/arrangementer?format=rss";
+
+      try {
+        const res = await fetch(CORS_PROXY + encodeURIComponent(FEED_URL));
+        const data = await res.json();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(data.contents, "text/xml");
+        const items = Array.from(xml.querySelectorAll("item"));
+
+        const events = items.map(item => {
+          const title = item.querySelector("title")?.textContent || "";
+          const description = item.querySelector("description")?.textContent || "";
+          const pubDate = new Date(item.querySelector("pubDate")?.textContent || "");
+          const enclosure = item.querySelector("enclosure");
+          const imageUrl = enclosure ? enclosure.getAttribute("url") : "";
+
+          return { title, description, pubDate, imageUrl };
+        });
+
+        const now = new Date();
+        const upcoming = events
+          .filter(e => e.pubDate > now)
+          .sort((a, b) => a.pubDate - b.pubDate)
+          .slice(0, 10);
+
+        renderEvents(upcoming);
+      } catch (error) {
+        console.error("Feil ved henting av arrangementer:", error);
+      }
+    }
+
+    function renderEvents(events) {
+      const left = document.getElementById("column-left");
+      const right = document.getElementById("column-right");
+      left.innerHTML = "";
+      right.innerHTML = "";
+
+      events.forEach((event, i) => {
+        const el = document.createElement("div");
+        el.className = "event";
+        el.innerHTML = `
+          <img src="${event.imageUrl}" alt="Event image">
+          <div class="event-text">
+            <div class="event-date">${event.pubDate.toLocaleDateString("no-NO", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+            <div class="event-title">${event.title}</div>
+            <div class="event-desc">${event.description.replace(/(<([^>]+)>)/gi, "").slice(0, 60)}...</div>
+          </div>
+        `;
+        if (i < 5) {
+          left.appendChild(el);
+        } else {
+          right.appendChild(el);
+        }
+      });
+    }
+
+    // Initial henting av arrangementer
+    fetchEvents();
+    // Oppdater hver 4. time
+    setInterval(fetchEvents, 4 * 60 * 60 * 1000);
+  </script>
+</body>
+</html>
